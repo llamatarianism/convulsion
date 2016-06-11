@@ -1,46 +1,35 @@
 (ns convulsion.core
-  (:import (java.net Socket))
-  (:require [clojure.core.async :as async :refer [<! <!! >! >!!]]
-            [clojure.java.io :as io]))
+  (:require [convulsion.commands :as comms]
+            [convulsion.connection :as conn :refer [conn]]
+            [convulsion.config :as conf]
+            [clojure.core.async :as async :refer [thread thread-call go go-loop chan >! >!! <! <!!]]))
 
-(def ^:dynamic *conn* nil)
+;(defn read-input
+ ; []
+  ;(binding [*in* (:in conn)]
+   ; (go-loop []
+    ;  (println (read-line))
+                                        ; (recur))))
+(def chan-echo (chan (async/sliding-buffer 1)))
+(go-loop [] (println (<! chan-echo)) (recur))
 
-(def ^:const conn-settings
-  {:host "irc.chat.twitch.tv"
-   :port 6667})
-
-(def ^:const user-settings
-  {:nick "llamatarianism"
-   :auth #_no-thanks})
-
-(defn make-connection
-  [settings]
-  (let [socket (Socket. (:host settings) (:port settings))]
-    {:socket socket
-     :in     (io/reader socket)
-     :out    (io/writer socket)}))
-
-(defn write
-  [& msg]
-  (binding [*out* (:out *conn*)]
-    (apply println msg)))
-
-(defn join
-  [chan]
-  (write "JOIN " chan))
-
-(defn say
-  [chan msg]
-  (write "PRIVMSG " chan " :" msg))
-
-(defn authorise
-  [user]
-  (write "PASS " (:auth user))
-  (write "NICK " (:nick user)))
+(def chan-say (chan (async/sliding-buffer 1)))
+(go-loop [] (comms/say "#llamatarianism" (<! chan-say)) (recur))
 
 (defn -main [& args]
-  (let [conn (make-connection conn-settings)]
-    (binding [*conn* conn]
-      (authorise user-settings)
-      (join "#henley")
-      (say "#henley" "another testy test test"))))
+  (comms/authorise conf/user-settings)
+  (comms/join "#llamatarianism")
+  (comms/say "#llamatarianism" "oyeh")
+  (thread
+    (go-loop [ln (.readLine (:in conn))]
+      (if-let [ping (re-find #"^PING (.+)" ln)]
+        (comms/write "PONG " (second ping))
+        (>! chan-echo ln))
+      (recur (.readLine (:in conn)))))
+  (loop []
+    (let [ln (clojure.string/trim (read-line))]
+      (when-not (#{":q" ":quit" ":exit"} ln)
+        (if (= ":moo" ln)
+          (println "you have unlocked SUPER COW POWERS!")
+          (go (>! chan-say ln)))
+        (recur)))))
