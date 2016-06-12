@@ -1,29 +1,22 @@
 (ns convulsion.core
-  (:require [convulsion.commands :as comms]
+  (:require [convulsion.commands :as comms :refer [chan-write]]
             [convulsion.connection :as conn :refer [conn]]
             [convulsion.config :as conf]
             [clojure.core.async :as async :refer [thread thread-call go go-loop chan >! >!! <! <!!]]))
 
-;(defn read-input
- ; []
-  ;(binding [*in* (:in conn)]
-   ; (go-loop []
-    ;  (println (read-line))
-                                        ; (recur))))
-(def chan-echo (chan (async/sliding-buffer 1)))
-(go-loop [] (println (<! chan-echo)) (recur))
+(def channel (first *command-line-args*))
 
-(def chan-say (chan (async/sliding-buffer 1)))
-(go-loop [] (comms/say "#llamatarianism" (<! chan-say)) (recur))
+(def chan-echo (chan (async/sliding-buffer 10)))
+(go-loop [] (println (<! chan-echo)) (recur))
 
 (defn -main [& args]
   (comms/authorise conf/user-settings)
-  (comms/join "#llamatarianism")
-  (comms/say "#llamatarianism" "oyeh")
+  (comms/join channel)
+  (println (.readLine (:in conn)))
   (thread
     (go-loop [ln (.readLine (:in conn))]
       (if-let [ping (re-find #"^PING (.+)" ln)]
-        (comms/write "PONG " (second ping))
+        (>! chan-write (str "PONG " (second ping)))
         (>! chan-echo ln))
       (recur (.readLine (:in conn)))))
   (loop []
@@ -31,5 +24,5 @@
       (when-not (#{":q" ":quit" ":exit"} ln)
         (if (= ":moo" ln)
           (println "you have unlocked SUPER COW POWERS!")
-          (go (>! chan-say ln)))
+          (comms/say channel ln))
         (recur)))))
