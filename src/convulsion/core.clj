@@ -1,35 +1,17 @@
 (ns convulsion.core
-  (:require [convulsion.commands :as comms :refer [chan-write]]
-            [convulsion.connection :as conn :refer [conn]]
+  (:require [convulsion.commands :as comms]
+            [convulsion.connection :as conn]
             [convulsion.config :as conf]
-            [clojure.core.async :as async :refer [thread thread-call go go-loop chan >! >!! <! <!!]]))
-
-(def channel (first *command-line-args*))
-
-(def chan-echo (chan (async/sliding-buffer 10)))
-(go-loop [] (println (<! chan-echo)) (recur))
-
-(defn user-input-handler []
-  (loop []
-    (let [ln (clojure.string/trim (read-line))]
-      (when-not (#{":q" ":quit" ":exit"} ln)
-        (if (= ":moo" ln)
-          (println "you have unlocked SUPER COW POWERS!")
-          (comms/say channel ln))
-        (recur)))))
-
-(defn chat-input-handler []
-  (go-loop [ln (.readLine (:in conn))]
-    (if-let [ping (re-find #"^PING (.+)" ln)]
-      (>! chan-write (str "PONG " (second ping)))
-      (>! chan-echo ln))
-    (recur (.readLine (:in conn)))))
+            [convulsion.ircio :as io]
+            [clojure.core.async :as async]))
 
 (defn -main [& args]
-  (comms/authorise conf/user-settings)
-  (comms/join channel)
-  (println (.readLine (:in conn)))
-  (thread-call chat-input-handler)
-  (user-input-handler))
-    
-  
+  (let [channel (or (first args) (loop [channel nil]
+                                   (if (empty? channel)
+                                     (do (println "Please enter the name of a channel to connect to.")
+                                         (recur (read-line)))
+                                     channel)))]
+    (comms/authorise conf/user-settings)
+    (comms/join channel)
+    (async/thread-call io/chat-input-handler)
+    (io/user-input-handler channel)))
