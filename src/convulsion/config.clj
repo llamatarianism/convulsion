@@ -6,4 +6,5 @@
 
 (def user-settings
   {:nick "llamautomaton"
-   :auth "oauth:8tfmh6zmoxt1qsdmg6rc21f9dtensi"})
+   :auth nil
+   :chan nil})
