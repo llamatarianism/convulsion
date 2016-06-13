@@ -9,16 +9,7 @@
 (def chan-echo (chan (async/sliding-buffer 10)))
 (go-loop [] (println (<! chan-echo)) (recur))
 
-(defn -main [& args]
-  (comms/authorise conf/user-settings)
-  (comms/join channel)
-  (println (.readLine (:in conn)))
-  (thread
-    (go-loop [ln (.readLine (:in conn))]
-      (if-let [ping (re-find #"^PING (.+)" ln)]
-        (>! chan-write (str "PONG " (second ping)))
-        (>! chan-echo ln))
-      (recur (.readLine (:in conn)))))
+(defn user-input-handler []
   (loop []
     (let [ln (clojure.string/trim (read-line))]
       (when-not (#{":q" ":quit" ":exit"} ln)
@@ -26,3 +17,19 @@
           (println "you have unlocked SUPER COW POWERS!")
           (comms/say channel ln))
         (recur)))))
+
+(defn chat-input-handler []
+  (go-loop [ln (.readLine (:in conn))]
+    (if-let [ping (re-find #"^PING (.+)" ln)]
+      (>! chan-write (str "PONG " (second ping)))
+      (>! chan-echo ln))
+    (recur (.readLine (:in conn)))))
+
+(defn -main [& args]
+  (comms/authorise conf/user-settings)
+  (comms/join channel)
+  (println (.readLine (:in conn)))
+  (thread-call chat-input-handler)
+  (user-input-handler))
+    
+  
