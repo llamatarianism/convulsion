@@ -1,4 +1,4 @@
-(ns convulsion.commands
+ns convulsion.commands
   (:require [convulsion.connection :as conn :refer [conn]]
             [convulsion.config :as conf]
             [clojure.core.async :as async :refer [chan go go-loop <! <!! >! >!!]]))

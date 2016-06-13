@@ -31,19 +31,20 @@
     ln))
 
 (defn user-input-handler
-  [channel]
-  (loop [ln (trim (lower-case (read-line)))]
+  []
+  (loop [ln (trim (read-line))]
     (when-not (#{":q" ":quit" ":exit"} ln)
-      (if (= ":moo" ln)
-        (println "you have unlocked SUPER COW POWERS!")
-        (comms/say channel ln))
-      (recur (trim (lower-case (read-line)))))))
+      (if-let [[_ new-channel] (re-find #"^JOIN (#.+)" ln)]
+        (comms/join new-channel)
+        (let [[_ channel message] (re-find #"(.+)-> (.+)" ln)]
+          (comms/say (str "#" channel) message)))
+      (recur (trim (read-line))))))
 
 (defn chat-input-handler
   []
   (go-loop [ln (.readLine (:in conn))]
-    (if-let [ping (re-find #"^PING (.+)" ln)]
-      (>! comms/chan-write (str "PONG " (second ping)))
+    (if-let [[_ server] (re-find #"^PING (.+)" ln)]
+      (>! comms/chan-write (str "PONG " server))
       (>! chan-echo (pretty-print ln)))
     (recur (.readLine (:in conn)))))
 

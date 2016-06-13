@@ -15,9 +15,10 @@
       x)))
 
 (defn -main [& args]
-  (let [channel (or (:chan conf/user-settings) (repeated-prompt "CHANNEL"))
-        auth    (or (:auth conf/user-settings) (repeated-prompt "OAUTH"))]
+  (let [channels (or (:chans conf/user-settings) [(repeated-prompt "CHANNEL")])
+        auth     (or (:auth conf/user-settings)   (repeated-prompt "OAUTH"))]
     (comms/authorise (assoc conf/user-settings :auth auth))
-    (comms/join channel)
+    (doseq [channel channels]
+      (comms/join channel))
     (async/thread-call io/chat-input-handler)
-    (io/user-input-handler channel)))
+    (io/user-input-handler)))

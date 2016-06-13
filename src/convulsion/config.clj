@@ -7,4 +7,4 @@
 (def user-settings
   {:nick "llamautomaton"
    :auth nil
-   :chan nil})
+   :chans nil})
